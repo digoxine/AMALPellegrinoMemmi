@@ -37,34 +37,10 @@ writer = SummaryWriter()
 
 for i in range(iterations):
 
-    train_loss=0
-    j=0
-    for x in data:
-        j+=1
-
-        x = x.to(device)
-        print(x.size())
-        x = torch.flatten(x.permute(1,0,2), start_dim=1)
-
-        h = torch.zeros(batch_size*number_classes,latent_size).to(device)
-
-        h = model(x,h)
-        yhat = model.decode(h[-1])
-
-        l = loss(yhat, labels)
-        train_loss += l.data.to('cpu').item()
-
-        optim.zero_grad()
-        l.backward()
-        optim.step()
-    #print(yhat[0].data.to('cpu'))
-    train_loss /= j
-
-
     with torch.no_grad():
         test_loss = 0
         j=0
-        correct=0
+        correct_test=0
         total=0
         for x in data_test:
             j+=1
@@ -74,18 +50,46 @@ for i in range(iterations):
             h = torch.zeros(batch_size * number_classes, latent_size).to(device)
 
             h = model(x, h)
+
             outputs = model.decode(h[-1])
 
             l = loss(outputs, labels)
             test_loss += l.data.to('cpu').item()
 
-            predicted =torch.argmax(outputs.data, 1)
+            predicted = torch.argmax(outputs.data, 1)
+
             total += predicted.size(0)
-            correct += (predicted == labels_test).sum().item()
-        correct_test = correct/total
+            correct_test += (predicted == labels_test).sum().item()
+        correct_test /= total
 
         correct_train = 1
         test_loss /= j
+
+    train_loss=0
+    j=0
+    for x in data:
+        j+=1
+        optim.zero_grad()
+        x = x.to(device)
+
+        x = torch.flatten(x.permute(1,0,2), start_dim=1)
+
+        h = torch.zeros(batch_size*number_classes,latent_size).to(device)
+
+        h = model(x,h)
+        yhat = model.decode(h[-1])
+
+        l = loss(yhat, labels)
+
+        l.backward()
+        optim.step()
+        train_loss += l.data.to('cpu').item()
+
+    #print(yhat[0].data.to('cpu'))
+    train_loss /= j
+
+
+
 
 
     writer.add_scalar('Acc/Test', correct_test, i)
