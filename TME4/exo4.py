@@ -19,7 +19,7 @@ def code2string(t):
         t = t.tolist()
     return ''.join(id2lettre[i] for i in t)
 
-from utils import read_temps, RNN, device, DataCSV, nn, torch, Decoder, RNN_forecasting, DataCSV_All, RNN_seq_gen, RNN_seq_gen2, State
+from utils import read_temps, RNN, device, DataCSV, nn, torch, DataCSV_All, State
 from torch.utils.data import DataLoader
 from torch.utils.tensorboard import SummaryWriter
 import numpy as np
@@ -27,30 +27,25 @@ import time
 from pathlib import Path
 
 
-sequence_length = 15 #including forecast
+sequence_length = 15
 sequence_pred_length = 20
-batch_size = 30 #excluding multi-city
+batch_size = 128
 
 data_train = DataTXT_All('data/trump_full_speech.txt', sequence_length)
-#data_test = DataCSV_All('data/tempAMAL_test.csv', number_classes, sequence_length)
 data = DataLoader(data_train, batch_size=batch_size, shuffle=True,drop_last=True)
-#data_test = DataLoader(temp_data_test, batch_size=1, shuffle=False,drop_last=True)
 
-latent_size = 35
+latent_size = 64
 number_classes = len(id2lettre)
 model = RNN(len(id2lettre), latent_size, len(id2lettre))
-decoder = Decoder(latent_size,number_classes)
+
 loss = nn.CrossEntropyLoss()
-optim = torch.optim.Adam(list(model.parameters())+list(decoder.parameters()), lr=5*10**-3)
-#optim_decoder = torch.optim.Adam(decoder.parameters(), lr=10**-4)
+optim = torch.optim.Adam(model.parameters(), lr=5*10**-3)
 
 iterations = 15
 
 #GPU
 model.to(device)
-decoder.to(device)
 loss.to(device)
-#decoder.to(device)
 
 writer = SummaryWriter()
 
@@ -66,6 +61,7 @@ def inv_one_hot(pred):
 
     arg_max = torch.argmax(pred).to('cpu').item()
 
+
     return id2lettre[arg_max]
 
 savepath = Path("seq_gen"+str(latent_size)+".pch")
@@ -73,7 +69,7 @@ if savepath.is_file():
     with savepath.open("rb") as fp:
         state = torch.load(fp)
 else:
-    state = State(model, optim, decoder)
+    state = State(model, optim)
 
 state.optim.lr=5*10**-2
 
@@ -106,8 +102,7 @@ def Train():
 
             train_loss += l.data.to('cpu').item()
 
-
-        train_loss = sequence_length*train_loss/nt
+        train_loss = batch_size*sequence_length*train_loss/nt
 
         writer.add_scalar('Loss/Train', train_loss, i)
         print()
@@ -122,20 +117,21 @@ def Generate():
     h = torch.zeros(1, latent_size).to(device)
     x = torch.squeeze(one_hot(string2code(normalize(initial_sequence))[None,:], number_classes).to(device))
 
-    h = state.model(x, h)
+    h = state.model(x, h).squeeze()[-1].unsqueeze(0)
 
-    yhat = nn.functional.softmax(state.model.decoder(h[-1]), 1)
-    print(yhat.size())
+    yhat = nn.functional.softmax(state.model.decoder(h), 1)
 
     out_sequence = inv_one_hot(yhat)
     for j in range(sequence_pred_length):
+
         h = state.model(yhat, h)
+
+        h = h.squeeze().unsqueeze(0)
 
         yhat = nn.functional.softmax(state.decoder(h), 1)
 
-        yhat = torch.squeeze(yhat)
         out_sequence+=inv_one_hot(yhat)
     print(out_sequence)
 
-Generate()
-#Train()
+#Generate()
+Train()
