@@ -7,7 +7,7 @@ import time
 
 sequence_length = 20
 number_classes = 10
-batch_size = 20 #excluding multi-city
+batch_size = 30 #excluding multi-city
 temp_data_train = DataCSV_All('data/tempAMAL_train.csv', number_classes, sequence_length)
 temp_data_test = DataCSV_All('data/tempAMAL_test.csv', number_classes, sequence_length)
 data = DataLoader(temp_data_train, batch_size=batch_size, shuffle=True,drop_last=True)
@@ -18,7 +18,7 @@ labels_test = torch.tensor(np.array([i%number_classes for i in range(1*number_cl
 labels_train = torch.tensor(np.array([i%number_classes for i in range(1*number_classes)])).to(device)
 
 data_sizes = temp_data_train.data.size()
-latent_size = 20
+latent_size = 50
 
 model = RNN(1, latent_size, number_classes)
 #decoder = Decoder(latent_size,number_classes)
@@ -43,9 +43,9 @@ for i in range(iterations):
         x = torch.flatten(x.permute(1,0,2), start_dim=1)
 
         h = torch.zeros(1,batch_size*number_classes,latent_size).to(device)
-        yhat = model(x,h)
-
-        l = loss(yhat, labels)
+        h_f = model(x,h)
+        yhat = model.decode(h_f)
+        l = loss(yhat, labels.long())
 
         l.backward()
         optim.step()
@@ -85,5 +85,6 @@ for i in range(iterations):
         writer.add_scalar('Loss/Train', correct_train, i)
         print('Epoch: ', i+1, '\tAccuracy train: ', correct_train, '\tAccuracy test: ', correct_test)
 
+writer.close()
 
 

@@ -59,11 +59,12 @@ class RNN(nn.Module):
 
     def forward(self, x, h):
         for i in x:
-
             h = torch.cat((h,self.one_step(i[:,None], h[-1])[None,:,:]),0)
 
-        return self.decoder(h[-1])
+        return h[-1]
 
+    def decode(self,h):
+        return self.decoder(h)
 
 class RNN_forecasting(nn.Module):
 
@@ -99,40 +100,6 @@ class RNN_forecasting(nn.Module):
 
 
 
-class RNN_seq_gen(nn.Module):
-
-    #  TODO:  Implémenter comme décrit dans la question 1
-    def __init__(self, dim_in, dim_latent, dim_out, sequence_out_length):
-        super(RNN_seq_gen, self).__init__()
-        self.hidden_group = nn.Linear(dim_latent, dim_latent)
-        self.input_group = nn.Linear(dim_in, dim_latent, bias=False)
-        self.activation_function = nn.ReLU()
-        self.sequence_out_length = sequence_out_length
-
-        #decoder
-        self.decoder = nn.Linear(dim_latent, dim_out)
-        #self.activation_function_decoder = nn.Softmax()
-
-    def one_step(self, x, h):
-
-        return self.activation_function(self.input_group(x)\
-                                        +self.hidden_group(h))
-
-    def forward(self, x, h):
-
-        sequence_out = self.decoder(h[-1])[None, :,:]
-        #x = x.permute(1,0,2)
-
-        for i in x:
-
-            h = torch.cat((h,self.one_step(i, h[-1])[None,:,:]),0) #?????
-            sequence_out = torch.cat((sequence_out, self.decoder(h[-1])[None,:]))
-
-        for i in range(max(0, self.sequence_out_length-1-len(x))):
-            h = torch.cat((h,self.one_step(sequence_out[-1], h[-1])[None,:,:]), 0)
-            sequence_out = torch.cat((sequence_out, self.decoder(h[-1])[None, :]), 0) #aaa
-
-        return sequence_out[0:self.sequence_out_length].squeeze().permute(1,0,2)
 
 class RNN_seq_gen2(nn.Module):
 
