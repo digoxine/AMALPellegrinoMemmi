@@ -20,7 +20,7 @@ labels_train = torch.tensor(np.array([i%number_classes for i in range(batch_size
 data_sizes = temp_data_train.data.size()
 latent_size = 20
 
-model = RNN(batch_size*number_classes, latent_size, number_classes)
+model = RNN(1, latent_size, number_classes)
 #decoder = Decoder(latent_size,number_classes)
 loss = nn.CrossEntropyLoss()
 optim = torch.optim.Adam(model.parameters(), lr=10**-3)
@@ -49,7 +49,7 @@ for i in range(iterations):
 
             h = torch.zeros(batch_size * number_classes, latent_size).to(device)
 
-            h = model(x, h)
+            h = model(x.unsqueeze(2), h)
 
             outputs = model.decode(h[-1])
 
@@ -65,6 +65,7 @@ for i in range(iterations):
         correct_train = 1
         test_loss /= j
 
+    #print('Train')
     train_loss=0
     j=0
     for x in data:
@@ -76,7 +77,7 @@ for i in range(iterations):
 
         h = torch.zeros(batch_size*number_classes,latent_size).to(device)
 
-        h = model(x,h)
+        h = model(x.unsqueeze(2),h)
         yhat = model.decode(h[-1])
 
         l = loss(yhat, labels)
