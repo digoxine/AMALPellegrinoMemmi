@@ -41,43 +41,28 @@ for i in range(iterations):
         optim.zero_grad()
         x = x.to(device)
         x = torch.flatten(x.permute(1,0,2), start_dim=1)
-
         h = torch.zeros(1,batch_size*number_classes,latent_size).to(device)
         h_f = model(x,h)
-        yhat = model.decode(h_f)
+        yhat = model.decode(h_f[-1])
         l = loss(yhat, labels.long())
-
         l.backward()
         optim.step()
-    #print(yhat[0].data.to('cpu'))
 
     with torch.no_grad():
         model.eval()
-
         correct=0
         total=0
         for x in data_test:
             x = x.to(device)
             x = torch.flatten(x.permute(1, 0, 2), start_dim=1)
             h = torch.zeros(1, 1 * number_classes, latent_size).to(device)
-            outputs = model(x,h)
+            outputs = model.decoder(model(x,h))
             _,predicted =torch.max(outputs.data, 1)
             total += predicted.size(0)
             correct += (predicted == labels_test).sum().item()
         correct_test = correct/total
 
         correct_train = 1
-        """correct=0
-        total=0
-        for x in data_train:
-            x = x.to(device)
-            x = torch.flatten(x.permute(1, 0, 2), start_dim=1)
-            h = torch.zeros(1, 1 * number_classes, latent_size).to(device)
-            outputs = model(x,h)
-            _,predicted =torch.max(outputs.data, 1)
-            total += predicted.size(0)
-            correct += (predicted == labels_train).sum().item()
-        correct_train = correct/total"""
 
         model.train()
 

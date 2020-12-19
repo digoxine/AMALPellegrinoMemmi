@@ -58,10 +58,10 @@ class RNN(nn.Module):
                                         +self.hidden_group(h))
 
     def forward(self, x, h):
-        for i in x:
-            h = torch.cat((h,self.one_step(i[:,None], h[-1])[None,:,:]),0)
-
-        return h[-1]
+        h_seq = [h[-1]]
+        for x_u in x:
+            h_seq.append(self.one_step(x_u.unsqueeze(-1), h_seq[-1]))
+        return torch.stack(h_seq)
 
     def decode(self,h):
         return self.decoder(h)
