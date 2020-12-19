@@ -36,9 +36,9 @@ data_train = DataTXT_All('data/trump_full_speech.txt', sequence_length)
 data = DataLoader(data_train, batch_size=batch_size, shuffle=True,drop_last=True)
 #data_test = DataLoader(temp_data_test, batch_size=1, shuffle=False,drop_last=True)
 
-latent_size = 30
+latent_size = 35
 number_classes = len(id2lettre)
-model = RNN_seq_gen2(len(id2lettre), latent_size, len(id2lettre), sequence_pred_length)
+model = RNN(len(id2lettre), latent_size, len(id2lettre))
 decoder = Decoder(latent_size,number_classes)
 loss = nn.CrossEntropyLoss()
 optim = torch.optim.Adam(list(model.parameters())+list(decoder.parameters()), lr=5*10**-3)
@@ -88,27 +88,24 @@ def Train():
                 print(nt, end=', ')
 
             nt += 1
-            state.optim.zero_grad()
 
-            y = x.permute(1, 0).to(device)
+            y = x.to(device)
             x= one_hot(x, len(id2lettre)).to(device)
             h = torch.zeros(batch_size, latent_size).to(device)
             x = x.permute(1, 0, 2).to(device)
 
-            seq_loss = 0
-            for j in range(len(x)-1):
+            h = state.model(x, h)
 
-                h = state.model(x[j], h)
-                yhat = state.decoder(h)
+            yhat = state.model.decoder(h).transpose(0,1)
 
-                l = loss(yhat, y[j+1])
-                seq_loss +=l
+            l = loss(yhat.flatten(0,1), y.flatten())
 
-            seq_loss.backward()
-
-            train_loss += seq_loss.data.to('cpu').item()
-
+            state.optim.zero_grad()
+            l.backward()
             state.optim.step()
+
+            train_loss += l.data.to('cpu').item()
+
 
         train_loss = train_loss/(nt*sequence_length)
 
@@ -125,14 +122,11 @@ def Generate():
     initial_sequence = 'this is unbelievable'
     h = torch.zeros(1, latent_size).to(device)
     x = torch.squeeze(one_hot(string2code(normalize(initial_sequence))[None,:], number_classes).to(device))
-    yhat = 0
-    for j in range(len(x)):
 
-        h = state.model(x[j], h)
+    h = state.model(x, h)
 
-        yhat = activ(state.decoder(h))
+    yhat = activ(state.model.decoder(h[-1]))
 
-    yhat = torch.squeeze(yhat)
     out_sequence = inv_one_hot(yhat)
     for j in range(sequence_pred_length):
         h = state.model(yhat, h)
@@ -143,4 +137,5 @@ def Generate():
         out_sequence+=inv_one_hot(yhat)
     print(out_sequence)
 
-Generate()
+#Generate()
+Train()

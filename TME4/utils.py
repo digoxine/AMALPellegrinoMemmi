@@ -60,7 +60,7 @@ class RNN(nn.Module):
         h_seq = [h]
 
         for x_u in x:
-            print(x_u.size(), h_seq[-1].size(), self.input_group)
+
             h_seq.append(self.one_step(x_u, h_seq[-1]))
 
         return torch.stack(h_seq[1:])
