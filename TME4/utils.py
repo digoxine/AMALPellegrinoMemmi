@@ -228,6 +228,7 @@ class DataCSV_All(Dataset):
         self.sequence_length=sequence_length
 
 
+
     def __len__(self):
         return len(self.data)-self.sequence_length
 

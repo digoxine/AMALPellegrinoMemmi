@@ -107,7 +107,7 @@ def Train():
             train_loss += l.data.to('cpu').item()
 
 
-        train_loss = train_loss/(nt*sequence_length)
+        train_loss = train_loss/nt
 
         writer.add_scalar('Loss/Train', train_loss, i)
         print()

@@ -5,7 +5,7 @@ import numpy as np
 import time
 #  TODO:  Question 2 : prédiction de la ville correspondant à une séquence
 
-sequence_length = 20
+sequence_length = 15
 number_classes = 10
 batch_size = 30 #excluding multi-city
 temp_data_train = DataCSV_All('data/tempAMAL_train.csv', number_classes, sequence_length)
@@ -37,6 +37,30 @@ writer = SummaryWriter()
 
 for i in range(iterations):
 
+    train_loss=0
+    j=0
+    for x in data:
+        j+=1
+
+        x = x.to(device)
+        print(x.size())
+        x = torch.flatten(x.permute(1,0,2), start_dim=1)
+
+        h = torch.zeros(batch_size*number_classes,latent_size).to(device)
+
+        h = model(x,h)
+        yhat = model.decode(h[-1])
+
+        l = loss(yhat, labels)
+        train_loss += l.data.to('cpu').item()
+
+        optim.zero_grad()
+        l.backward()
+        optim.step()
+    #print(yhat[0].data.to('cpu'))
+    train_loss /= j
+
+
     with torch.no_grad():
         test_loss = 0
         j=0
@@ -62,39 +86,6 @@ for i in range(iterations):
 
         correct_train = 1
         test_loss /= j
-
-    train_loss=0
-    j=0
-    for x in data:
-        j+=1
-
-        x = x.to(device)
-        x = torch.flatten(x.permute(1,0,2), start_dim=1)
-
-        h = torch.zeros(batch_size*number_classes,latent_size).to(device)
-
-        h = model(x,h)
-        yhat = model.decode(h[-1])
-
-        l = loss(yhat, labels)
-        train_loss += l.data.to('cpu').item()
-
-        optim.zero_grad()
-        l.backward()
-        optim.step()
-    #print(yhat[0].data.to('cpu'))
-    train_loss /= j
-    """correct=0
-        total=0
-        for x in data_train:
-            x = x.to(device)
-            x = torch.flatten(x.permute(1, 0, 2), start_dim=1)
-            h = torch.zeros(1, 1 * number_classes, latent_size).to(device)
-            outputs = model(x,h)
-            _,predicted =torch.max(outputs.data, 1)
-            total += predicted.size(0)
-            correct += (predicted == labels_train).sum().item()
-        correct_train = correct/total"""
 
 
     writer.add_scalar('Acc/Test', correct_test, i)
