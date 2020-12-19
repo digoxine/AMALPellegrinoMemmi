@@ -20,13 +20,13 @@ labels_train = torch.tensor(np.array([i%number_classes for i in range(batch_size
 data_sizes = temp_data_train.data.size()
 latent_size = 20
 
-model = RNN(batch_size*number_classes, latent_size, number_classes)
+model = RNN(1, latent_size, number_classes)
 #decoder = Decoder(latent_size,number_classes)
 loss = nn.CrossEntropyLoss()
 optim = torch.optim.Adam(model.parameters(), lr=10**-3)
 #optim_decoder = torch.optim.Adam(decoder.parameters(), lr=10**-4)
 
-iterations = 1000
+iterations = 5
 
 #GPU
 model.to(device)
@@ -49,11 +49,11 @@ for i in range(iterations):
 
             h = torch.zeros(batch_size * number_classes, latent_size).to(device)
 
-            h = model(x, h)
+            h = model(x.unsqueeze(2), h)
 
             outputs = model.decode(h[-1])
 
-            l = loss(outputs, labels)
+            l = loss(outputs, labels.long())
             test_loss += l.data.to('cpu').item()
 
             predicted = torch.argmax(outputs.data, 1)
@@ -65,6 +65,7 @@ for i in range(iterations):
         correct_train = 1
         test_loss /= j
 
+    #print('Train')
     train_loss=0
     j=0
     for x in data:
@@ -76,10 +77,10 @@ for i in range(iterations):
 
         h = torch.zeros(batch_size*number_classes,latent_size).to(device)
 
-        h = model(x,h)
+        h = model(x.unsqueeze(2),h)
         yhat = model.decode(h[-1])
 
-        l = loss(yhat, labels)
+        l = loss(yhat, labels.long())
 
         l.backward()
         optim.step()
@@ -98,6 +99,6 @@ for i in range(iterations):
     writer.add_scalar('Loss/Train', train_loss, i)
     print('Epoch: ', i+1,' \tLoss train: ', train_loss, '\tAccuracy train: ', correct_train,' \tLoss test: ', test_loss, '\tAccuracy test: ', correct_test)
 
-
+writer.close()
 
 
