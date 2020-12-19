@@ -58,10 +58,11 @@ class RNN(nn.Module):
 
     def forward(self, x, h):
         h_seq = [h]
-
+        print("h shape: {}".format(h.shape))
         for x_u in x:
-
-            h_seq.append(self.one_step(x_u, h_seq[-1]))
+            print("x_u shape: {}".format(x_u.shape))
+            h_tmp = h_seq[-1]
+            h_seq.append(self.one_step(x_u, h_tmp))
 
         return torch.stack(h_seq[1:])
 
