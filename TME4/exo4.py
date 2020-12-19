@@ -107,7 +107,7 @@ def Train():
             train_loss += l.data.to('cpu').item()
 
 
-        train_loss = train_loss/nt
+        train_loss = sequence_length*train_loss/nt
 
         writer.add_scalar('Loss/Train', train_loss, i)
         print()
@@ -118,24 +118,24 @@ def Train():
             torch.save(state,fp)
 
 def Generate():
-    activ = torch.nn.Softmax()
     initial_sequence = 'this is unbelievable'
     h = torch.zeros(1, latent_size).to(device)
     x = torch.squeeze(one_hot(string2code(normalize(initial_sequence))[None,:], number_classes).to(device))
 
     h = state.model(x, h)
 
-    yhat = activ(state.model.decoder(h[-1]))
+    yhat = nn.functional.softmax(state.model.decoder(h[-1]), 1)
+    print(yhat.size())
 
     out_sequence = inv_one_hot(yhat)
     for j in range(sequence_pred_length):
         h = state.model(yhat, h)
 
-        yhat = activ(state.decoder(h))
+        yhat = nn.functional.softmax(state.decoder(h), 1)
 
         yhat = torch.squeeze(yhat)
         out_sequence+=inv_one_hot(yhat)
     print(out_sequence)
 
-#Generate()
-Train()
+Generate()
+#Train()
