@@ -3,9 +3,10 @@ from torch.utils.data import DataLoader
 from torch.utils.tensorboard import SummaryWriter
 import numpy as np
 import time
+import datetime
 #  TODO:  Question 2 : prédiction de la ville correspondant à une séquence
 
-sequence_length = 15
+sequence_length = 21
 number_classes = 10
 batch_size = 30 #excluding multi-city
 temp_data_train = DataCSV_All('data/tempAMAL_train.csv', number_classes, sequence_length)
@@ -26,14 +27,14 @@ loss = nn.CrossEntropyLoss()
 optim = torch.optim.Adam(model.parameters(), lr=10**-3)
 #optim_decoder = torch.optim.Adam(decoder.parameters(), lr=10**-4)
 
-iterations = 5
+iterations = 15
 
 #GPU
 model.to(device)
 loss.to(device)
 #decoder.to(device)
 
-writer = SummaryWriter()
+writer = SummaryWriter("runs/exo2/runs"+datetime.datetime.now().strftime("%Y%m%d-%H%M%S"))
 
 for i in range(iterations):
 

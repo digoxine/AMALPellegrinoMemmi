@@ -137,5 +137,6 @@ def Generate():
         out_sequence+=inv_one_hot(yhat)
     print(out_sequence)
 
-Generate()
-#Train()
+#Generate()
+
+Train()
