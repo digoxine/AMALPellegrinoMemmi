@@ -3,13 +3,11 @@ import torch.optim
 from textloader import *
 from generate import *
 import logging
-import datetime
 logging.basicConfig(level=logging.INFO)
 
 from torch.utils.data import DataLoader
 from torch.utils.tensorboard import SummaryWriter
 from pathlib import Path
-device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 def inv_one_hot(pred):
 
@@ -43,16 +41,16 @@ class LSTM(nn.Module):
     def __init__(self, dim_in, dim_latent):
         super(LSTM, self).__init__()
 
-        self.forget = nn.Linear(dim_latent+dim_in, dim_latent).to(device)
-        self.input = nn.Linear(dim_latent+dim_in, dim_latent).to(device)
-        self.update = nn.Linear(dim_latent+dim_in, dim_latent).to(device)
-        self.output = nn.Linear(dim_latent+dim_in, dim_latent).to(device)
+        self.forget = nn.Linear(dim_latent+dim_in, dim_latent)
+        self.input = nn.Linear(dim_latent+dim_in, dim_latent)
+        self.update = nn.Linear(dim_latent+dim_in, dim_latent)
+        self.output = nn.Linear(dim_latent+dim_in, dim_latent)
 
-        self.tanh = nn.Tanh().to(device)
-        self.sig = nn.Sigmoid().to(device)
+        self.tanh = nn.Tanh()
+        self.sig = nn.Sigmoid()
 
         self.dim_latent = dim_latent
-        self.memory = torch.rand(dim_latent).to(device)
+        self.memory = torch.rand(dim_latent).to('cuda')
 
 
     def one_step(self, x, h):
@@ -65,15 +63,11 @@ class LSTM(nn.Module):
         return ot*self.tanh(Ct)
 
     def forward(self, x, h):
-        h_seq = [h]
 
-        for x_u in x:
-            h_seq.append(self.one_step(x_u, h_seq[-1]))
-
-        return torch.stack(h_seq[1:]).to(device)
+        return self.one_step(x,h)
 
     def reset_memory(self):
-        self.memory = torch.rand(self.dim_latent).to(device)
+        self.memory = torch.rand(self.dim_latent).to('cuda')
 
 class GRU(nn.Module):
     #  TODO:  Implémenter un GRU
@@ -86,8 +80,7 @@ class GRU(nn.Module):
 
         self.tanh = nn.Tanh()
         self.sig = nn.Sigmoid()
-        self.dim_latent = dim_latent
-        self.memory = torch.rand(dim_latent).to('cuda')
+
     def one_step(self, x, h):
         xh = torch.cat((x,h),1)
 
@@ -103,13 +96,11 @@ class GRU(nn.Module):
 
         return self.one_step(x,h)
 
-    def reset_memory(self):
-        self.memory = torch.rand(self.dim_latent).to('cuda')
 class Decoder(nn.Module):
 
     def __init__(self, dim_in, dim_out):
         super(Decoder, self).__init__()
-        self.linear = nn.Linear(dim_in, dim_out).to(device)
+        self.linear = nn.Linear(dim_in, dim_out)
 
     def forward(self, x):
 
@@ -137,42 +128,34 @@ data = DataLoader(data_train, batch_size=batch_size, collate_fn=collate_fn, shuf
 
 latent_size = 97*40
 number_classes = len(id2lettre)
+model = LSTM(embedding_size, latent_size)
+decoder = Decoder(latent_size,number_classes)
+loss = nn.CrossEntropyLoss(reduction='none')
+optim = torch.optim.Adam(list(model.parameters())+list(decoder.parameters()), lr=10**-3)
+embedder = nn.Embedding(num_embeddings=number_classes, embedding_dim=embedding_size, padding_idx=0)
+
+iterations = 40
+
+#GPU
+device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+#device = torch.device("cpu")
+model.to(device)
+decoder.to(device)
+loss.to(device)
+
+writer = SummaryWriter()
 
 
+savepath = Path("seq_gen"+str(latent_size)+".pch")
+if savepath.is_file() :
+
+    with savepath.open("rb") as fp:
+        state = torch.load(fp)
+else:
+    state = State(model, optim, decoder, embedder)
 
 
-
-
-def Train(RNN_TYPE='LSTM'):
-    writer = SummaryWriter("runs/"+RNN_TYPE+"_" + datetime.datetime.now().strftime("%Y%m%d-%H%M%S"))
-
-    if RNN_TYPE == 'LSTM':
-        model = LSTM(embedding_size, latent_size)
-    elif RNN_TYPE == 'RNN':
-        model = RNN(embedding_size, latent_size)
-    elif RNN_TYPE == 'GRU':
-        model = GRU(embedding_size, latent_size)
-    else:
-        model = LSTM(embedding_size, latent_size)
-
-    decoder = Decoder(latent_size, number_classes)
-    loss = nn.CrossEntropyLoss(ignore_index=0)
-    optim = torch.optim.Adam(list(model.parameters()) + list(decoder.parameters()), lr=10 ** -3)
-    embedder = nn.Embedding(num_embeddings=number_classes, embedding_dim=embedding_size, padding_idx=0)
-    savepath = Path("seq_gen" + str(latent_size) + ".pch")
-    if savepath.is_file():
-
-        with savepath.open("rb") as fp:
-            state = torch.load(fp)
-    else:
-        state = State(model, optim, decoder, embedder)
-    iterations = 40
-
-    # GPU
-    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    model.to(device)
-    decoder.to(device)
-    loss.to(device)
+def Train():
     for i in range(iterations):
 
         train_loss = 0
@@ -191,27 +174,17 @@ def Train(RNN_TYPE='LSTM'):
             h = torch.zeros(batch_size, latent_size).to(device)
             seq_len += len(x)
             seq_loss = 0#------------
-            '''
             for j in range(len(x)-1):
 
-                h = state.model(x[j], h).to(device)
+                h = state.model(x[j], h)
                 yhat = state.decoder(h)
 
                 l = maskedCrossEntropy(yhat, y[j+1], 0, loss)
                 seq_loss +=l
-            '''
-            print("y shape: {}".format(y.shape))
 
-            h = state.model(x, h).to(device)
-            yhat = state.decoder(h)
-            print("yhat shape: {}".format(yhat.shape))
-            l = maskedCrossEntropy(yhat, y, 0, loss)
             seq_loss.backward()
 
-
-
-
-            train_loss += seq_loss.data.item()
+            train_loss += seq_loss.data.to('cpu').item()
 
             state.optim.step()
             state.optim.zero_grad()
@@ -227,9 +200,9 @@ def Train(RNN_TYPE='LSTM'):
             torch.save(state,fp)
 
 
-Train('LSTM')
+#Train()
 
-start_seq = 'They\'re not '
+start_seq = 'He is '
 #print(start_seq+generate_beam(model, embedder, decoder, latent_size,start=start_seq))
 state.model.reset_memory()
 r = generate_beam(state.model, state.embedder, state.decoder, latent_size,start=start_seq)
