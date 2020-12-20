@@ -65,8 +65,10 @@ def collate_fn(samples: List[List[int]]):
     return batch.long()
 
 def maskedCrossEntropy(output, target, padcar, loss):
-
-    return torch.mean(loss(output*(output!=padcar), target))
+    criterion = torch.nn.CrossEntropyLoss(ignore_index=padcar)
+    mask = output !=padcar
+    return loss(torch.flatten(mask.mul(output),end_dim=1), target)#loss(torch.flatten(mask.mul(output), end_dim=1), target.flatten()))))
+    #return torch.mean(loss(output*(output!=padcar), target))
 
 if __name__ == "__main__":
     test = "C'est. Un. Test."

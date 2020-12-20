@@ -1,8 +1,9 @@
 import string
 import unicodedata
 import torch
+import datetime
 from utils import RNN, device, DataTXT_All
-
+device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 LETTRES = string.ascii_letters + string.punctuation+string.digits+' '
 id2lettre = dict(zip(range(1,len(LETTRES)+1),LETTRES))
 id2lettre[0]='' ##NULL CHARACTER
@@ -29,7 +30,7 @@ from pathlib import Path
 
 sequence_length = 15
 sequence_pred_length = 20
-batch_size = 128
+batch_size = 256
 
 data_train = DataTXT_All('data/trump_full_speech.txt', sequence_length)
 data = DataLoader(data_train, batch_size=batch_size, shuffle=True,drop_last=True)
@@ -50,7 +51,7 @@ loss.to(device)
 writer = SummaryWriter("runs/exo4/runs"+datetime.datetime.now().strftime("%Y%m%d-%H%M%S"))
 
 def one_hot(ind, dic_length):
-    t = torch.zeros(len(ind), len(ind[0]), dic_length)
+    t = torch.zeros(len(ind), len(ind[0]), dic_length).to(device)
     for j in range(len(ind)):
 
         for i in range(len(ind[0])):
@@ -59,7 +60,7 @@ def one_hot(ind, dic_length):
 
 def inv_one_hot(pred):
 
-    arg_max = torch.argmax(pred).to('cpu').item()
+    arg_max = torch.argmax(pred).to(device).item()
 
 
     return id2lettre[arg_max]
@@ -71,7 +72,7 @@ if savepath.is_file():
 else:
     state = State(model, optim)
 
-state.optim.lr=5*10**-2
+state.optim.lr=5*10**-3
 
 def Train():
     for i in range(iterations):
@@ -90,9 +91,9 @@ def Train():
             h = torch.zeros(batch_size, latent_size).to(device)
             x = x.permute(1, 0, 2).to(device)
 
-            h = state.model(x, h)
+            h = state.model(x, h).to(device)
 
-            yhat = state.model.decoder(h).transpose(0,1)
+            yhat = state.model.decoder(h).transpose(0,1).to(device)
 
             l = loss(yhat.flatten(0,1), y.flatten())
 
@@ -100,7 +101,7 @@ def Train():
             l.backward()
             state.optim.step()
 
-            train_loss += l.data.to('cpu').item()
+            train_loss += l.data.to(device).item()
 
         train_loss = batch_size*sequence_length*train_loss/nt
 
@@ -135,3 +136,5 @@ def Generate():
 
 #Generate()
 Train()
+Generate()
+writer.close()

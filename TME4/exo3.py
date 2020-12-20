@@ -88,8 +88,8 @@ for epoch in range(iterations):
         test_loss = test_loss/n
         model.train()
 
-        writer.add_scalar('Loss/Test', test_loss, i)
-        writer.add_scalar('Loss/Train', train_loss, i)
+        writer.add_scalar('Loss/Test', test_loss, epoch)
+        writer.add_scalar('Loss/Train', train_loss, epoch)
         print('Epoch: ', epoch, '\tError train: ', train_loss, '\tError test: ', test_loss)
 
 writer.close()
