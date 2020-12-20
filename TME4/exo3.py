@@ -2,7 +2,7 @@ from utils import read_temps, RNN, device
 
 #  TODO:  Question 3 : Prédiction de séries temporelles
 
-from utils import read_temps, RNN, device, DataCSV, nn, torch, Decoder, RNN_forecasting, DataCSV_All
+from utils import read_temps, RNN, device, DataCSV, nn, torch, DataCSV_All
 from torch.utils.data import DataLoader
 from torch.utils.tensorboard import SummaryWriter
 import numpy as np
@@ -15,25 +15,21 @@ forecast_length = 2
 temp_data_train = DataCSV_All('data/tempAMAL_train.csv', number_classes, sequence_length)
 temp_data_test = DataCSV_All('data/tempAMAL_test.csv', number_classes, sequence_length)
 data = DataLoader(temp_data_train, batch_size=batch_size, shuffle=True,drop_last=True)
-data_train = DataLoader(temp_data_train, batch_size=1, shuffle=False,drop_last=True)
 data_test = DataLoader(temp_data_test, batch_size=1, shuffle=False,drop_last=True)
 
 
 data_sizes = temp_data_train.data.size()
 latent_size = 10
 
-model = RNN_forecasting(1, latent_size, 1, forecast_length)
-#decoder = Decoder(latent_size,number_classes)
+model = RNN(1, latent_size, 1)
 loss = nn.MSELoss()
 optim = torch.optim.Adam(model.parameters(), lr=10**-2)
-#optim_decoder = torch.optim.Adam(decoder.parameters(), lr=10**-4)
 
 iterations = 1000
 
 #GPU
 model.to(device)
 loss.to(device)
-#decoder.to(device)
 
 writer = SummaryWriter()
 
@@ -46,10 +42,17 @@ for i in range(iterations):
         optim.zero_grad()
         x = x.to(device)
         x = torch.flatten(x.permute(1, 0, 2), start_dim=1)
-        y = x[-forecast_length:]
+        y = x[-forecast_length:].unsqueeze(2)
         x = x[:-forecast_length]
-        h = torch.zeros(1, batch_size * number_classes, latent_size).to(device)
-        yhat = model(x, h)
+        h = torch.zeros(batch_size * number_classes, latent_size).to(device)
+        h = model(x.unsqueeze(2), h)[-1]
+        yhat = []
+        for i in range(forecast_length):
+            current_pred = model.decode(h)
+            yhat.append(current_pred)
+            h = model(current_pred, h)[-1]
+
+        yhat = torch.stack(yhat)
 
         l = loss(yhat, y)
         train_loss += l.data.to('cpu').item()
@@ -58,6 +61,7 @@ for i in range(iterations):
         optim.step()
     train_loss = train_loss/nt
 
+    print('Test')
     with torch.no_grad():
         model.eval()
 
@@ -67,10 +71,17 @@ for i in range(iterations):
             n  += 1
             x = x.to(device)
             x = torch.flatten(x.permute(1, 0, 2), start_dim=1)
-            y = x[-forecast_length:]
+            y = x[-forecast_length:].unsqueeze(2)
             x = x[:-forecast_length]
-            h = torch.zeros(1, 1 * number_classes, latent_size).to(device)
-            yhat = model(x,h)
+            h = torch.zeros(1 * number_classes, latent_size).to(device)
+            h = model(x.unsqueeze(2), h)[-1]
+            yhat = []
+            for i in range(forecast_length):
+                current_pred = model.decode(h)
+                yhat.append(current_pred)
+                h = model(current_pred, h)[-1]
+
+            yhat = torch.stack(yhat)
             test_loss += loss(yhat, y).to('cpu').item()
 
         test_loss = test_loss/n
