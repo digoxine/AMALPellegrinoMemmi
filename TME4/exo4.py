@@ -47,7 +47,7 @@ iterations = 15
 model.to(device)
 loss.to(device)
 
-writer = SummaryWriter()
+writer = SummaryWriter("runs/exo4/runs"+datetime.datetime.now().strftime("%Y%m%d-%H%M%S"))
 
 def one_hot(ind, dic_length):
     t = torch.zeros(len(ind), len(ind[0]), dic_length)

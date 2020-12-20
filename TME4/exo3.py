@@ -7,6 +7,7 @@ from torch.utils.data import DataLoader
 from torch.utils.tensorboard import SummaryWriter
 import numpy as np
 import time
+import datetime
 
 sequence_length = 20 #including forecast
 number_classes = 5
@@ -33,7 +34,7 @@ loss.to(device)
 
 writer = SummaryWriter("runs/exo3/runs"+datetime.datetime.now().strftime("%Y%m%d-%H%M%S"))
 
-for i in range(iterations):
+for epoch in range(iterations):
 
     train_loss = 0
     nt = 0
@@ -89,7 +90,7 @@ for i in range(iterations):
 
         writer.add_scalar('Loss/Test', test_loss, i)
         writer.add_scalar('Loss/Train', train_loss, i)
-        print('Epoch: ', i+1, '\tError train: ', train_loss, '\tError test: ', test_loss)
+        print('Epoch: ', epoch, '\tError train: ', train_loss, '\tError test: ', test_loss)
 
 writer.close()
 
