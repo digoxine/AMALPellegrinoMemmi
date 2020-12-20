@@ -25,13 +25,13 @@ model = RNN(1, latent_size, 1)
 loss = nn.MSELoss()
 optim = torch.optim.Adam(model.parameters(), lr=10**-2)
 
-iterations = 1000
+iterations = 15
 
 #GPU
 model.to(device)
 loss.to(device)
 
-writer = SummaryWriter()
+writer = SummaryWriter("runs/exo3/runs"+datetime.datetime.now().strftime("%Y%m%d-%H%M%S"))
 
 for i in range(iterations):
 
@@ -91,5 +91,5 @@ for i in range(iterations):
         writer.add_scalar('Loss/Train', train_loss, i)
         print('Epoch: ', i+1, '\tError train: ', train_loss, '\tError test: ', test_loss)
 
-
+writer.close()
 

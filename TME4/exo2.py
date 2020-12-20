@@ -3,6 +3,7 @@ from torch.utils.data import DataLoader
 from torch.utils.tensorboard import SummaryWriter
 import numpy as np
 import time
+import datetime
 #  TODO:  Question 2 : prédiction de la ville correspondant à une séquence
 
 sequence_length = 15
@@ -33,7 +34,7 @@ model.to(device)
 loss.to(device)
 #decoder.to(device)
 
-writer = SummaryWriter()
+writer = SummaryWriter("runs/exo2/runs"+datetime.datetime.now().strftime("%Y%m%d-%H%M%S"))
 
 for i in range(iterations):
 
@@ -80,7 +81,7 @@ for i in range(iterations):
         h = model(x.unsqueeze(2),h)
         yhat = model.decode(h[-1])
 
-        l = loss(yhat, labels)
+        l = loss(yhat, labels.long())
 
         predicted = torch.argmax(yhat.data, 1)
         total += predicted.size(0)
