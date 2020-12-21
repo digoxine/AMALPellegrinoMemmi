@@ -7,7 +7,6 @@ from torch.utils.data import DataLoader
 from torch.utils.tensorboard import SummaryWriter
 import numpy as np
 import time
-import datetime
 
 sequence_length = 20 #including forecast
 number_classes = 5
@@ -24,23 +23,23 @@ latent_size = 10
 
 model = RNN(1, latent_size, 1)
 loss = nn.MSELoss()
-optim = torch.optim.Adam(model.parameters(), lr=10**-2)
+optim = torch.optim.Adam(model.parameters(), lr=10**-3)
 
-iterations = 15
+iterations = 1000
 
 #GPU
 model.to(device)
 loss.to(device)
 
-writer = SummaryWriter("runs/exo3/runs"+datetime.datetime.now().strftime("%Y%m%d-%H%M%S"))
+writer = SummaryWriter()
 
-for epoch in range(iterations):
+for i in range(iterations):
 
     train_loss = 0
     nt = 0
     for x in data:
         nt += 1
-        optim.zero_grad()
+
         x = x.to(device)
         x = torch.flatten(x.permute(1, 0, 2), start_dim=1)
         y = x[-forecast_length:].unsqueeze(2)
@@ -58,11 +57,12 @@ for epoch in range(iterations):
         l = loss(yhat, y)
         train_loss += l.data.to('cpu').item()
 
+        optim.zero_grad()
         l.backward()
         optim.step()
     train_loss = train_loss/nt
 
-    print('Test')
+
     with torch.no_grad():
         model.eval()
 
@@ -88,9 +88,9 @@ for epoch in range(iterations):
         test_loss = test_loss/n
         model.train()
 
-        writer.add_scalar('Loss/Test', test_loss, epoch)
-        writer.add_scalar('Loss/Train', train_loss, epoch)
-        print('Epoch: ', epoch, '\tError train: ', train_loss, '\tError test: ', test_loss)
+        writer.add_scalar('Loss/Test', test_loss, i)
+        writer.add_scalar('Loss/Train', train_loss, i)
+        print('Epoch: ', i+1, '\tError train: ', train_loss, '\tError test: ', test_loss)
 
-writer.close()
+
 

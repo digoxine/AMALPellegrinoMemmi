@@ -34,11 +34,11 @@ class RNN(nn.Module):
     #  TODO:  Implémenter comme décrit dans la question 1
     def __init__(self, dim_in, dim_latent, dim_out):
         super(RNN, self).__init__()
-        self.hidden_group = nn.Linear(dim_latent, dim_latent).to(device)
-        self.input_group = nn.Linear(dim_in, dim_latent, bias=False).to(device)
-        self.activation_function = nn.ReLU().to(device)
+        self.hidden_group = nn.Linear(dim_latent, dim_latent)
+        self.input_group = nn.Linear(dim_in, dim_latent, bias=False)
+        self.activation_function = nn.ReLU()
 
-        self.decoder = nn.Linear(dim_latent, dim_out).to(device)
+        self.decoder = nn.Linear(dim_latent, dim_out)
 
     def one_step(self, x, h):
 
@@ -52,7 +52,7 @@ class RNN(nn.Module):
 
             h_seq.append(self.one_step(x_u, h_seq[-1]))
 
-        return torch.stack(h_seq[1:]).to(device)
+        return torch.stack(h_seq[1:])
 
     def decode(self,h):
         return self.decoder(h)
