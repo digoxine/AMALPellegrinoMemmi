@@ -170,7 +170,7 @@ class CNN2(nn.Module):
 
 #kernel_size = size of n-gram, out_channels
 #model = CNN([(3,1,10), (7,1,10), (5,1,10)], 256, vocab_size, 2) #(kernel_size, stride, out_channels)
-model = CNN2([(3,2,50), (3,1,10)], 256, vocab_size, 2) #(kernel_size, stride, out_channels)
+model = CNN2([(3,1,50), (3,2,10)], 256, vocab_size, 2) #(kernel_size, stride, out_channels)
 loss = nn.CrossEntropyLoss()
 optim = torch.optim.Adam(params=model.parameters(), lr=10**-4)
 
@@ -178,10 +178,6 @@ optim = torch.optim.Adam(params=model.parameters(), lr=10**-4)
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 model.to(device)
 loss.to(device)
-
-
-model.activations(next(iter(train_iter))[0].to(device))
-exit()
 
 def Train():
     epochs = 10
@@ -240,27 +236,34 @@ def Train():
         writer.add_scalar('Acc/Val', val_acc, epoch)
         writer.flush()
 
-def activationsIdentification(len):
-    index_max_word = [0 for i in range(len)]
-    max_seq = [0 for i in range(len)]
-    max = [0 for i in range(len)]
+def activationsIdentification(length):
+    iter = torch.utils.data.DataLoader(test, batch_size=64, collate_fn=TextDataset.collate)
 
-    for x in train_iter:
+    index_max_word = [0 for i in range(length)]
+    max_seq = [0 for i in range(length)]
+    max = [0 for i in range(length)]
 
-        y = x[1].to(device)
+    for x in iter:
 
         yhat = model.activations(x[0].to(device))
 
-        yhat = yhat.squeeze()
-        for i in range(len):
-            if torch.max(yhat[:,i])[0]>max[i]:
-                max_seq[i] = yhat
-                index_max_word[i] = torch.argmax(yhat[:,i])
-                max[i] = torch.max(yhat[:,i])
+        yhat = yhat.transpose(0,1)
+        for j in yhat:
+            for i in range(length):
 
-    for i in range(len(index_max_word)):
+                if torch.max(j[:,i]).item()>max[i]:
 
+                    max_seq[i] = x[0][0]
 
+                    index_max_word[i] = torch.argmax(j[:,i])
+
+                    max[i] = torch.max(j[:,i])
+
+    for i in range(length):
+
+        print('Feature: ', i, '\tMax Word: ', tokenizer.IdToPiece(max_seq[i][index_max_word[i]].item()),'\tValue: ', max[i].item())
+
+Train()
 activationsIdentification(10)
 
 
