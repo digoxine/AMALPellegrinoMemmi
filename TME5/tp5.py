@@ -2,7 +2,6 @@ import torch.nn as nn
 import torch.optim
 from textloader import *
 from generate import *
-import datetime
 import logging
 logging.basicConfig(level=logging.INFO)
 
@@ -81,8 +80,7 @@ class GRU(nn.Module):
 
         self.tanh = nn.Tanh()
         self.sig = nn.Sigmoid()
-        self.dim_latent = dim_latent
-        self.memory = torch.rand(dim_latent).to('cuda')
+
     def one_step(self, x, h):
         xh = torch.cat((x,h),1)
 
@@ -97,8 +95,7 @@ class GRU(nn.Module):
     def forward(self, x, h):
 
         return self.one_step(x,h)
-    def reset_memory(self):
-        self.memory = torch.rand(self.dim_latent).to('cuda')
+
 class Decoder(nn.Module):
 
     def __init__(self, dim_in, dim_out):
@@ -131,40 +128,34 @@ data = DataLoader(data_train, batch_size=batch_size, collate_fn=collate_fn, shuf
 
 latent_size = 97*40
 number_classes = len(id2lettre)
+model = GRU(embedding_size, latent_size)
+decoder = Decoder(latent_size,number_classes)
+loss = nn.CrossEntropyLoss(reduction='none')
+optim = torch.optim.Adam(list(model.parameters())+list(decoder.parameters()), lr=10**-3)
+embedder = nn.Embedding(num_embeddings=number_classes, embedding_dim=embedding_size, padding_idx=0)
+
+iterations = 20
+
+#GPU
+device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+#device = torch.device("cpu")
+model.to(device)
+decoder.to(device)
+loss.to(device)
+
+writer = SummaryWriter()
 
 
+savepath = Path("seq_gen"+str(latent_size)+".pch")
+if savepath.is_file() :
+
+    with savepath.open("rb") as fp:
+        state = torch.load(fp)
+else:
+    state = State(model, optim, decoder, embedder)
 
 
-def Train(RNN_TYPE='LSTM'):
-    writer = SummaryWriter("runs/"+RNN_TYPE+"_" + datetime.datetime.now().strftime("%Y%m%d-%H%M%S"))
-
-    if RNN_TYPE == 'LSTM':
-        model = LSTM(embedding_size, latent_size)
-    elif RNN_TYPE == 'RNN':
-        model = RNN(embedding_size, latent_size)
-    elif RNN_TYPE == 'GRU':
-        model = GRU(embedding_size, latent_size)
-    else:
-        model = LSTM(embedding_size, latent_size)
-
-    decoder = Decoder(latent_size, number_classes)
-    loss = nn.CrossEntropyLoss(ignore_index=0)
-    optim = torch.optim.Adam(list(model.parameters()) + list(decoder.parameters()), lr=10 ** -3)
-    embedder = nn.Embedding(num_embeddings=number_classes, embedding_dim=embedding_size, padding_idx=0)
-    savepath = Path("seq_gen" + str(latent_size) + ".pch")
-    if savepath.is_file():
-
-        with savepath.open("rb") as fp:
-            state = torch.load(fp)
-    else:
-        state = State(model, optim, decoder, embedder)
-    iterations = 40
-
-    # GPU
-    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    model.to(device)
-    decoder.to(device)
-    loss.to(device)
+def Train():
     for i in range(iterations):
 
         train_loss = 0
@@ -199,9 +190,8 @@ def Train(RNN_TYPE='LSTM'):
             state.optim.zero_grad()
 
         train_loss = train_loss/seq_len
-        start_seq = 'He is '
+
         writer.add_scalar('Loss/Train', train_loss, i)
-        writer.add_text(generate_beam(state.model, state.embedder, state.decoder, latent_size,start=start_seq),i)
         print()
         print('Epoch: ', i+1, '\tError train: ', train_loss)
 
@@ -210,12 +200,13 @@ def Train(RNN_TYPE='LSTM'):
             torch.save(state,fp)
 
 
-Train('GRU')
+#Train()
 
-start_seq = 'He is '
+start_seq = 'The world is '
 #print(start_seq+generate_beam(model, embedder, decoder, latent_size,start=start_seq))
 state.model.reset_memory()
 r = generate_beam(state.model, state.embedder, state.decoder, latent_size,start=start_seq)
+
 for i in r:
     print(start_seq+i)
 print(r)

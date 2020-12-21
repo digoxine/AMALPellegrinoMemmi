@@ -14,7 +14,6 @@ def generate(rnn, emb, decoder, latent_size, eos=1, start="a", maxlen=30):
     n = 0
 
     while final_sequence[-1] != eos and n<maxlen:
-        print(final_sequence[-1])
         h = rnn(emb(torch.tensor(final_sequence[-1]).unsqueeze(0)).to('cuda'),h)
         final_sequence.append(torch.argmax(decoder(h)).item())
 
@@ -31,6 +30,7 @@ def generate_beam(rnn, emb, decoder, latent_size, eos=1, k=10, start="", maxlen=
     n = 0
 
     _, i = torch.topk(decoder(h), k)
+    probas = torch.ones(k).to('cuda')
 
     final_sequences = [i[0][j].unsqueeze(0) for j in range(k)]
     stop = False
@@ -42,7 +42,11 @@ def generate_beam(rnn, emb, decoder, latent_size, eos=1, k=10, start="", maxlen=
             temp = torch.cat((temp, decoder(h_new)))
             hs[j] = h_new
 
-        _, top = torch.topk(temp.flatten(0), k)
+
+        temp = (probas*temp.transpose(0,1)).transpose(0,1)
+        probs, top = torch.topk(temp.flatten(0), k)
+
+        probas = probs*probas[top//dict_size]
 
         seq = [0 for j in range(k)]
         new_char = [0 for j in range(k)]
@@ -103,7 +107,6 @@ def p_nucleus(rnn, emb, decoder, latent_size, eos=1, k_max=10, start="", maxlen=
 
         _, top = torch.topk(temp.flatten(0), k_temp)
 
-        #important part
         temp = h[0]
         temp = temp / torch.sum(temp)
         k_temp =  1
