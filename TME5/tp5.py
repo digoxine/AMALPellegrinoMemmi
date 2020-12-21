@@ -162,8 +162,8 @@ def Train(RNN_TYPE='LSTM'):
 
     # GPU
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    model.to(device)
-    decoder.to(device)
+    state.model.to(device)
+    state.decoder.to(device)
     loss.to(device)
     for i in range(iterations):
 
@@ -201,7 +201,10 @@ def Train(RNN_TYPE='LSTM'):
         train_loss = train_loss/seq_len
         start_seq = 'He is '
         writer.add_scalar('Loss/Train', train_loss, i)
-        writer.add_text(generate_beam(state.model, state.embedder, state.decoder, latent_size,start=start_seq),i)
+        rs = generate_beam(state.model, state.embedder, state.decoder, latent_size,start='He is ')
+        print("rs")
+        print(rs)
+        #writer.add_text(generate_beam(state.model, state.embedder, state.decoder, latent_size,start=start_seq),i)
         print()
         print('Epoch: ', i+1, '\tError train: ', train_loss)
 
@@ -210,7 +213,7 @@ def Train(RNN_TYPE='LSTM'):
             torch.save(state,fp)
 
 
-Train('GRU')
+Train('LSTM')
 
 start_seq = 'He is '
 #print(start_seq+generate_beam(model, embedder, decoder, latent_size,start=start_seq))

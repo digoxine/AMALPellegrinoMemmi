@@ -102,7 +102,7 @@ def Train():
             state = torch.load(fp)
     else:
         state = State(model, optim)
-    state.optim.lr = 5 * 10 ** -3
+    state.optim.lr = 5 * 10 ** -2
     for i in range(iterations):
 
         train_loss = 0
