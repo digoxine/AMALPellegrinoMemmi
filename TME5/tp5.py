@@ -1,7 +1,7 @@
 import torch.nn as nn
 import torch.optim
 from textloader import *
-from generate_new2 import *
+from generate import *
 import logging
 logging.basicConfig(level=logging.INFO)
 

@@ -34,7 +34,6 @@ def generate_beam(rnn, emb, decoder, latent_size, eos=1, k=10, start="", maxlen=
     h = torch.stack([h.squeeze() for j in range(k)]).to('cuda')
 
     final_seq = index.transpose(0,1)
-    final_seq_eos = []
 
     mask = torch.ones(k).long().to('cuda')
 
@@ -70,7 +69,7 @@ def generate_beam(rnn, emb, decoder, latent_size, eos=1, k=10, start="", maxlen=
 
 
 # p_nucleus
-def p_nucleus(rnn, emb, decoder, latent_size, eos=1, k_max=10, start="", maxlen=30, dict_size=96, threshold=0.8):
+def nucleus_sampling(rnn, emb, decoder, latent_size, eos=1, k_max=10, start="", maxlen=30, dict_size=96, threshold=0.8):
 
     h = torch.zeros(1, latent_size).to('cuda')
     for j in range(len(start)):
@@ -83,8 +82,6 @@ def p_nucleus(rnn, emb, decoder, latent_size, eos=1, k_max=10, start="", maxlen=
     h = torch.stack([h.squeeze() for j in range(k_max)]).to('cuda')
 
     final_seq = index.transpose(0,1)
-    final_seq_eos = []
-
 
     count = 0
     while n<maxlen:
@@ -92,7 +89,7 @@ def p_nucleus(rnn, emb, decoder, latent_size, eos=1, k_max=10, start="", maxlen=
 
         h = rnn(emb(index.squeeze().to('cpu')).to('cuda'),h)
 
-        k = 5
+        k = 2
         p = 0
         while k<=k_max and p<threshold:
 
@@ -105,7 +102,7 @@ def p_nucleus(rnn, emb, decoder, latent_size, eos=1, k_max=10, start="", maxlen=
             maximum, index = torch.topk(s, k)
             k+=1
             p = torch.sum(maximum)
-        #print(k)
+
         probas = (probas[index//dict_size]*maximum)
         h = h[index//dict_size]
 
