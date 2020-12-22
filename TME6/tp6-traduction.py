@@ -10,13 +10,15 @@ from tqdm import tqdm
 from pathlib import Path
 from typing import List
 import random
+import datetime
+
 
 import time
 import re
 from torch.utils.tensorboard import SummaryWriter
 logging.basicConfig(level=logging.INFO)
 
-FILE = "./en-fra.txt"
+FILE = "./data/en-fra.txt"
 
 #writer = SummaryWriter("runs/tag-"+time.asctime())
 
@@ -261,7 +263,7 @@ test_loader = DataLoader(datatest, collate_fn=collate, batch_size=batch_size, sh
 
 
 latent_size = 700
-embedding_size = 264
+embedding_size = 164
 encoder = GRU_ENCODER(embedding_size, len(vocEng), latent_size)
 decoder = GRU_DECODER(embedding_size, len(vocFra), latent_size, vocFra.__len__())
 
@@ -286,7 +288,7 @@ if savepath.is_file() :
 else:
     state = State(encoder, decoder, optimizer)
 
-#writer = SummaryWriter("runs/tag-"+time.asctime())
+writer = SummaryWriter("runs/traduction/"+datetime.datetime.now().strftime("%Y%m%d-%H%M%S"))
 
 #======Parameters=====
 epochs = 10
@@ -310,9 +312,12 @@ def train():
 
             final_seq = state.decoder.generate(h, french_sent, batch_size, constrained)
             if j%100 == 0:
-
-                print("phrase en anglais: {}".format(vocEng.getwords(eng_sent[:,0])))
-                print("phrase traduite: {}".format(vocFra.getwords(torch.argmax(final_seq, dim=2)[:,0])))
+                eng_s = vocEng.getwords(eng_sent[:,0])
+                french_s = vocFra.getwords(torch.argmax(final_seq, dim=2)[:,0])
+                writer.add_text("english_sentence",' '.join(map(str,eng_s)),i)
+                writer.add_text("traduced_sentence", ' '.join(map(str,french_s)),i)
+                print("phrase en anglais: {}".format(eng_s))
+                print("phrase traduite: {}".format(french_s))
 
             l = loss(final_seq.view(-1, final_seq.shape[2]), french_sent.view(-1))
             avg_l += l.item()
@@ -322,6 +327,37 @@ def train():
         avg_l /= j
         print('Epoch: ', i, '\t train loss : ', avg_l)
 
+        avg_l = 0
+        j = 0
+        with torch.no_grad():
+            for eng_sent, _, french_sent, _ in test_loader:
+                j += 1
+
+                eng_sent = eng_sent.to(device).long()
+                french_sent = french_sent.to(device).long()
+                h = state.encoder.initHidden(batch_size).to(device)
+                y, h = state.encoder(eng_sent, h)
+
+                if random.uniform(0, 1) <= prop_constrained:
+                    constrained = True
+                else:
+                    constrained = False
+
+                final_seq = state.decoder.generate(h, french_sent, batch_size, constrained)
+                if j%100 == 0:
+                    eng_s = vocEng.getwords(eng_sent[:,0])
+                    french_s = vocFra.getwords(torch.argmax(final_seq, dim=2)[:,0])
+                    writer.add_text("english_sentence test",' '.join(map(str,eng_s)),i)
+                    writer.add_text("traduced_sentence test", ' '.join(map(str,french_s)),i)
+                    print("phrase en anglais test : {}".format(eng_s))
+                    print("phrase traduite test: {}".format(french_s))
+                l = loss(final_seq.view(-1, final_seq.shape[2]), french_sent.view(-1))
+                avg_l += l.item()
+            avg_l /= j
+            print('Epoch: ', i, '\tTrain loss: ', avg_l)
+            print()
+            writer.add_scalar('Loss/Test', avg_l, i)
+        # writer.add_scalar('Loss/Train', avg_l, i)
 
 def Train():
 
@@ -419,7 +455,7 @@ def Generate(loader):
 
 
 train()
-
+writer.close()
 Generate(train_loader)
 Generate(test_loader)
 

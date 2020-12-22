@@ -149,10 +149,19 @@ writer = SummaryWriter()
 savepath = Path("seq_gen"+str(latent_size)+".pch")
 if savepath.is_file() :
 
+<<<<<<< HEAD
     with savepath.open("rb") as fp:
         state = torch.load(fp)
 else:
     state = State(model, optim, decoder, embedder)
+=======
+    decoder = Decoder(latent_size, number_classes)
+    loss = nn.CrossEntropyLoss(ignore_index=0)
+    optim = torch.optim.Adam(list(model.parameters()) + list(decoder.parameters()), lr=1e-4)
+    embedder = nn.Embedding(num_embeddings=number_classes, embedding_dim=embedding_size, padding_idx=0)
+    savepath = Path("seq_gen" + str(latent_size) + ".pch")
+    if savepath.is_file():
+>>>>>>> f0a664346c9ed3147e302749d580be75a7d94b45
 
 
 def Train():
@@ -192,6 +201,13 @@ def Train():
         train_loss = train_loss/seq_len
 
         writer.add_scalar('Loss/Train', train_loss, i)
+<<<<<<< HEAD
+=======
+        rs = generate_beam(state.model, state.embedder, state.decoder, latent_size,start='He is ')
+        print("rs")
+        print(rs)
+        writer.add_text('Text/generated', rs[0], i)
+>>>>>>> f0a664346c9ed3147e302749d580be75a7d94b45
         print()
         print('Epoch: ', i+1, '\tError train: ', train_loss)
 
@@ -199,15 +215,29 @@ def Train():
             state.epoch = i+1
             torch.save(state,fp)
 
+<<<<<<< HEAD
 
 #Train()
+=======
+    writer.close()
+    return state
+#Train('GRU')
+>>>>>>> f0a664346c9ed3147e302749d580be75a7d94b45
 
 start_seq = 'The world is '
 #print(start_seq+generate_beam(model, embedder, decoder, latent_size,start=start_seq))
+#state.model.reset_memory()
+#r = generate_beam(state.model, state.embedder, state.decoder, latent_size,start=start_seq)
+state = Train('LSTM')
+start_seq = 'He is '
 state.model.reset_memory()
+<<<<<<< HEAD
 r = generate_beam(state.model, state.embedder, state.decoder, latent_size,start=start_seq, maxlen=30)
 
 for i in r:
     print(start_seq+i)
 print(r)
+=======
+r = generate_beam(state.model, state.embedder, state.decoder. latent_size, start=start_seq)
+>>>>>>> f0a664346c9ed3147e302749d580be75a7d94b45
 

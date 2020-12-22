@@ -1,7 +1,7 @@
 import itertools
 import logging
 from tqdm import tqdm
-
+import datetime
 from datamaestro import prepare_dataset
 from torch.utils.data import Dataset, DataLoader
 from torch.nn.utils.rnn import pad_sequence
@@ -109,7 +109,7 @@ test_data = TaggingDataset(ds.test, words, tags, False)
 
 logging.info("Vocabulary size: %d", len(words))
 
-writer = SummaryWriter()
+writer = SummaryWriter("runs/tagging/" + datetime.datetime.now().strftime("%Y%m%d-%H%M%S"))
 
 BATCH_SIZE=100
 
