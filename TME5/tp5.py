@@ -149,7 +149,7 @@ def Train(RNN_TYPE='LSTM'):
 
     decoder = Decoder(latent_size, number_classes)
     loss = nn.CrossEntropyLoss(ignore_index=0)
-    optim = torch.optim.Adam(list(model.parameters()) + list(decoder.parameters()), lr=10 ** -3)
+    optim = torch.optim.Adam(list(model.parameters()) + list(decoder.parameters()), lr=1e-4)
     embedder = nn.Embedding(num_embeddings=number_classes, embedding_dim=embedding_size, padding_idx=0)
     savepath = Path("seq_gen" + str(latent_size) + ".pch")
     if savepath.is_file():
@@ -204,7 +204,7 @@ def Train(RNN_TYPE='LSTM'):
         rs = generate_beam(state.model, state.embedder, state.decoder, latent_size,start='He is ')
         print("rs")
         print(rs)
-        #writer.add_text(generate_beam(state.model, state.embedder, state.decoder, latent_size,start=start_seq),i)
+        writer.add_text('Text/generated', rs[0], i)
         print()
         print('Epoch: ', i+1, '\tError train: ', train_loss)
 
@@ -212,14 +212,16 @@ def Train(RNN_TYPE='LSTM'):
             state.epoch = i+1
             torch.save(state,fp)
 
-
-Train('LSTM')
+    writer.close()
+    return state
+#Train('GRU')
 
 start_seq = 'He is '
 #print(start_seq+generate_beam(model, embedder, decoder, latent_size,start=start_seq))
+#state.model.reset_memory()
+#r = generate_beam(state.model, state.embedder, state.decoder, latent_size,start=start_seq)
+state = Train('LSTM')
+start_seq = 'He is '
 state.model.reset_memory()
-r = generate_beam(state.model, state.embedder, state.decoder, latent_size,start=start_seq)
-for i in r:
-    print(start_seq+i)
-print(r)
+r = generate_beam(state.model, state.embedder, state.decoder. latent_size, start=start_seq)
 
