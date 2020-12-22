@@ -1,7 +1,7 @@
 import torch.nn as nn
 import torch.optim
 from textloader import *
-from generate import *
+from generate_new2 import *
 import logging
 logging.basicConfig(level=logging.INFO)
 
@@ -205,7 +205,7 @@ def Train():
 start_seq = 'The world is '
 #print(start_seq+generate_beam(model, embedder, decoder, latent_size,start=start_seq))
 state.model.reset_memory()
-r = generate_beam(state.model, state.embedder, state.decoder, latent_size,start=start_seq)
+r = generate_beam(state.model, state.embedder, state.decoder, latent_size,start=start_seq, maxlen=30)
 
 for i in r:
     print(start_seq+i)

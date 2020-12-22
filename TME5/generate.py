@@ -29,47 +29,44 @@ def generate_beam(rnn, emb, decoder, latent_size, eos=1, k=10, start="", maxlen=
 
     n = 0
 
-    _, i = torch.topk(decoder(h), k)
-    probas = torch.ones(k).to('cuda')
+    maximum, index = torch.topk(torch.nn.functional.softmax(decoder(h), 1), k)
+    probas = maximum.squeeze()
+    h = torch.stack([h.squeeze() for j in range(k)]).to('cuda')
 
-    final_sequences = [i[0][j].unsqueeze(0) for j in range(k)]
-    stop = False
-    hs = [h for i in range(k)]
-    while n < maxlen and stop == False:
-        temp = torch.tensor([]).to('cuda')
-        for j in range(len(final_sequences)):
-            h_new = rnn(emb(final_sequences[j][-1].unsqueeze(0).to('cpu')).to('cuda'),hs[j])
-            temp = torch.cat((temp, decoder(h_new)))
-            hs[j] = h_new
+    final_seq = index.transpose(0,1)
+    final_seq_eos = []
 
+    mask = torch.ones(k).long().to('cuda')
 
-        temp = (probas*temp.transpose(0,1)).transpose(0,1)
-        probs, top = torch.topk(temp.flatten(0), k)
+    count = 0
+    while n<maxlen and count<k:
+        n+=1
 
-        probas = probs*probas[top//dict_size]
+        h = rnn(emb(index.squeeze().to('cpu')).to('cuda'),h)
 
-        seq = [0 for j in range(k)]
-        new_char = [0 for j in range(k)]
-        for j in range(len(top)):
-            seq[j] = top[j].item()//dict_size
-            new_char[j] = top[j].item()%dict_size
+        maximum, index = torch.topk((probas*(torch.nn.functional.softmax(decoder(h), 1).transpose(0,1))).transpose(0,1).flatten(), k)
 
-        hs_new = [0 for j in range(k)]
-        new_final_seq = [0 for j in range(k)]
-        for j in range(k):
-            hs_new[j] = hs[seq[j]]
-            new_final_seq[j] = torch.cat((final_sequences[seq[j]],torch.tensor(new_char[j]).unsqueeze(0).to('cuda')))
-        hs = hs_new
-        final_sequences = new_final_seq
+        probas = (probas[index//dict_size]*maximum)/torch.sum(probas)
+        h = h[index//dict_size]
 
-        n += 1
+        final_seq = final_seq[index//dict_size]
 
-    final_sequences_char = []
-    for i in final_sequences:
+        rnn.memory = rnn.memory[index//dict_size]
 
-        final_sequences_char.append(code2string(i.to('cpu').numpy()))
+        index = index%dict_size
 
-    return final_sequences_char
+        mask = mask * (index != eos)  # .long() #1 is eos
+        count = k-torch.count_nonzero(mask)
+
+        probas[torch.nonzero((mask == 0))] = 1000000
+
+        final_seq = torch.cat((final_seq, index.unsqueeze(1)), 1)
+
+    final_sentences = []
+    for i in final_seq:
+        final_sentences.append(code2string(i.to('cpu').numpy()))
+
+    return final_sentences
 
 
 # p_nucleus
@@ -77,68 +74,52 @@ def p_nucleus(rnn, emb, decoder, latent_size, eos=1, k_max=10, start="", maxlen=
 
     h = torch.zeros(1, latent_size).to('cuda')
     for j in range(len(start)):
-
         h = rnn(emb(string2code(start[j])).to('cuda'), h)
+
     n = 0
 
-    temp = h[0]
-    temp = temp / torch.sum(temp)
+    maximum, index = torch.topk(torch.nn.functional.softmax(decoder(h), 1), k_max)
+    probas = maximum.squeeze()
+    h = torch.stack([h.squeeze() for j in range(k_max)]).to('cuda')
 
-    k_temp = 1
-    p_total = 0
-    while p_total < threshold:
-        _, top = torch.topk(temp, k_temp)
-        p_total = 0
-        for j in top:
+    final_seq = index.transpose(0,1)
+    final_seq_eos = []
 
-            p_total += temp[j].item()
-        k_temp += 1
 
-    _, i = torch.topk(decoder(h), k_temp)
-    hs = [h for i in range(k_temp)]
-    final_sequences = [i[0][j].unsqueeze(0) for j in range(k_temp)]
-    stop = False
-    while n < maxlen and stop == False:
-        temp = torch.tensor([]).to('cuda')
-        for j in range(len(final_sequences)):
-            h_new = rnn(emb(final_sequences[j][-1].unsqueeze(0).to('cpu')).to('cuda'),hs[j])
-            temp = torch.cat((temp, decoder(h_new)))
-            hs[j] = h_new
+    count = 0
+    while n<maxlen:
+        n+=1
 
-        _, top = torch.topk(temp.flatten(0), k_temp)
+        h = rnn(emb(index.squeeze().to('cpu')).to('cuda'),h)
 
-        temp = h[0]
-        temp = temp / torch.sum(temp)
-        k_temp =  1
-        p_total = 0
-        while p_total < threshold:
-            _, top = torch.topk(temp, k_temp)
-            p_total = 0
-            for j in top:
-                p_total += temp[j].item()
-            k_temp += 1
+        k = 5
+        p = 0
+        while k<=k_max and p<threshold:
 
-        seq = [0 for j in range(k_temp)]
-        new_char = [0 for j in range(k_temp)]
-        for j in range(len(top)):
-            seq[j] = top[j].item()//dict_size
-            new_char[j] = top[j].item()%dict_size
+            s = torch.nn.functional.softmax(decoder(h), 1).flatten()/k
+            maximum, index = torch.topk(s, k)
+            sum_max = torch.sum(maximum)
 
-        new_final_seq = [0 for j in range(k_temp)]
-        hs_new = [0 for j in range(k_temp)]
-        for j in range(k_temp):
-            hs_new[j] = hs[seq[j]]
-            new_final_seq[j] = torch.cat((final_sequences[seq[j]],torch.tensor(new_char[j]).unsqueeze(0).to('cuda')))
-        hs = hs_new
+            s = (probas * (torch.nn.functional.softmax(decoder(h), 1).transpose(0, 1))).transpose(0, 1).flatten()/sum_max
 
-        final_sequences = new_final_seq
+            maximum, index = torch.topk(s, k)
+            k+=1
+            p = torch.sum(maximum)
+        #print(k)
+        probas = (probas[index//dict_size]*maximum)
+        h = h[index//dict_size]
 
-        n += 1
+        final_seq = final_seq[index//dict_size]
 
-    final_sequences_char = []
-    for i in final_sequences:
+        rnn.memory = rnn.memory[index//dict_size]
 
-        final_sequences_char.append(code2string(i.to('cpu').numpy()))
+        index = index%dict_size
 
-    return final_sequences_char
+        final_seq = torch.cat((final_seq, index.unsqueeze(1)), 1)
+
+    final_sentences = []
+    for i in final_seq:
+        final_sentences.append(code2string(i.to('cpu').numpy()))
+
+    return final_sentences
 
