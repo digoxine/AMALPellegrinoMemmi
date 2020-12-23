@@ -100,7 +100,7 @@ class CNN2(nn.Module):
         chan = embedding_dim
         for i in range(0, len(layers)):
             self.convs.append(nn.Conv1d(in_channels=chan, kernel_size=layers[0][0], stride=layers[i][1],
-                                        out_channels=layers[i][2]))
+                                        out_channels=layers[i][2], bias=False))
             self.pools.append(nn.MaxPool1d(kernel_size=layers[i][0], stride=layers[i][1]))
             chan = layers[i][2]
 
@@ -126,7 +126,6 @@ class CNN2(nn.Module):
     def lenOut(self, seq_len):
 
         for i in range(len(self.layers)):
-
             seq_len = math.floor((seq_len-self.layers[i][0])/self.layers[i][1]+1)
             seq_len = math.floor((seq_len-self.layers[i][0])/self.layers[i][1]+1)
 
@@ -135,14 +134,20 @@ class CNN2(nn.Module):
     def displacementLength(self):
 
         s = 1
-        w = 0
+        w = 1
 
         for i in self.layers:
-            w += s*(i[0]-1)
+
+            #conv
+            w = w+(i[0]-1)*s
+            s *= i[1]
+            #pool
+            w = w+(i[0]-1)*s
             s *= i[1]
 
         self.s = s
         self.w = w
+
 
     def activations(self, x): #returns how much each element of sequence activates output
 
@@ -170,7 +175,7 @@ class CNN2(nn.Module):
 
 #kernel_size = size of n-gram, out_channels
 #model = CNN([(3,1,10), (7,1,10), (5,1,10)], 256, vocab_size, 2) #(kernel_size, stride, out_channels)
-model = CNN2([(3,1,50), (3,2,10)], 256, vocab_size, 2) #(kernel_size, stride, out_channels)
+model = CNN2([(3,1,50),(3,1,10)], 256, vocab_size, 2) #(kernel_size, stride, out_channels)
 loss = nn.CrossEntropyLoss()
 optim = torch.optim.Adam(params=model.parameters(), lr=10**-4)
 
@@ -180,7 +185,7 @@ model.to(device)
 loss.to(device)
 
 def Train():
-    epochs = 10
+    epochs = 5
 
     for epoch in range(epochs):
 
@@ -242,26 +247,40 @@ def activationsIdentification(length):
     index_max_word = [0 for i in range(length)]
     max_seq = [0 for i in range(length)]
     max = [0 for i in range(length)]
+    max_seq_weights = [0 for i in range(length)]
 
     for x in iter:
 
-        yhat = model.activations(x[0].to(device))
+        yhat = model.activations(x[0].to(device)).transpose(0,1)
 
-        yhat = yhat.transpose(0,1)
-        for j in yhat:
+
+        for j in range(len(yhat)):
+
+            y=yhat[j]
+
             for i in range(length):
 
-                if torch.max(j[:,i]).item()>max[i]:
+                if torch.max(y[:,i]).item()>max[i]:
 
-                    max_seq[i] = x[0][0]
+                    max_seq[i] = x[0][j]
 
-                    index_max_word[i] = torch.argmax(j[:,i])
+                    index_max_word[i] = torch.argmax(y[:,i])
 
-                    max[i] = torch.max(j[:,i])
+                    max[i] = torch.max(y[:,i])
+                    max_seq_weights[i] = y[:,i]
 
     for i in range(length):
 
-        print('Feature: ', i, '\tMax Word: ', tokenizer.IdToPiece(max_seq[i][index_max_word[i]].item()),'\tValue: ', max[i].item())
+        sent = []
+        value = []
+        for j in range(len(max_seq[i])):
+            if tokenizer.Decode(max_seq[i].tolist()[j]) != '':
+                sent.append(tokenizer.Decode(max_seq[i].tolist()[j]))
+                value.append(max_seq_weights[i].tolist()[j])
+        word = ''
+        if index_max_word[i]<len(sent):
+            word = sent[index_max_word[i]]
+        print('Feature: ', i, '\tMax: ', max[i], '\tWord: ', word, '\nMax Sentence: \n', sent,'\nValue: \n', value)
 
 Train()
 activationsIdentification(10)
