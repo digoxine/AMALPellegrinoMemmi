@@ -123,7 +123,7 @@ def Train():
 
             yhat = state.model.decoder(h).transpose(0,1).to(device)
 
-            l = loss(yhat.flatten(0,1), y.flatten())
+            l = loss(yhat[:,:-sequence_pred_length].flatten(0,1), y[:,sequence_pred_length:].flatten())
 
             state.optim.zero_grad()
             l.backward()
@@ -131,7 +131,7 @@ def Train():
 
             train_loss += l.data.to(device).item()
 
-        train_loss = batch_size*sequence_length*train_loss/nt
+        train_loss = train_loss/nt
 
         writer.add_scalar('Loss/Train', train_loss, i)
         print()
