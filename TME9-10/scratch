@@ -1,0 +1,8 @@
+run 1 : q1
+run 2 : q2
+run 3 : q3 without bias
+run 4 : q3 with bias
+run 5 : q3 with value on attention
+run 6 : q3 with value on that
+run 7 : tme10 q1 batch 8
+run 8 : tme10 q2
